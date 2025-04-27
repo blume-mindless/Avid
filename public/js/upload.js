@@ -1,13 +1,7 @@
-// Azure Storage SDK
-const { BlobServiceClient } = require('@azure/storage-blob');
-
-// Configuration
-const AZURE_STORAGE_CONNECTION_STRING = "LmPYFX98fjr4h/A6AWErhXCrESiZoO9SIYRIr1FFLY5CdIPtfmn6B0NzFINqFQk4hLerR4l+mOjb+AStwg+mNg==";
-const VIDEO_CONTAINER_NAME = "videos";
-
-// Initialize
-const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
-const containerClient = blobServiceClient.getContainerClient(VIDEO_CONTAINER_NAME);
+// Configuration (replace with your actual values)
+const AZURE_STORAGE_ACCOUNT = "blume";
+const SAS_TOKEN = "?sv=2024-11-04&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2025-06-28T04:23:14Z&st=2025-04-27T20:23:14Z&spr=https&sig=RKYdjMZXaLsk9L3R50tDNXl%2FHYqZnl227X27q02RKkQ%3D";
+const CONTAINER_NAME = "videos";
 
 document.getElementById('upload-btn').addEventListener('click', async () => {
     const fileInput = document.getElementById('video-upload');
@@ -20,15 +14,32 @@ document.getElementById('upload-btn').addEventListener('click', async () => {
     
     const file = fileInput.files[0];
     const blobName = `${Date.now()}-${file.name}`;
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
     
     try {
         statusDiv.textContent = "Uploading...";
-        await blockBlobClient.uploadBrowserData(file);
-        statusDiv.textContent = "Upload successful!";
-        loadVideos(); // Refresh the video list
+        
+        // Create the upload URL
+        const uploadUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}/${blobName}${SAS_TOKEN}`;
+        
+        // Upload using Fetch API
+        const response = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+                'x-ms-blob-type': 'BlockBlob',
+                'Content-Type': file.type
+            },
+            body: file
+        });
+        
+        if (response.ok) {
+            statusDiv.textContent = "Upload successful!";
+            loadVideos(); // Refresh the video list
+        } else {
+            throw new Error(`Upload failed: ${response.statusText}`);
+        }
     } catch (error) {
-        statusDiv.textContent = `Upload failed: ${error.message}`;
+        statusDiv.textContent = error.message;
+        console.error(error);
     }
 });
 
@@ -36,20 +47,36 @@ async function loadVideos() {
     const videoContainer = document.getElementById('video-container');
     videoContainer.innerHTML = '';
     
-    for await (const blob of containerClient.listBlobsFlat()) {
-        const videoUrl = `https://blume.blob.core.windows.net/${VIDEO_CONTAINER_NAME}/${blob.name}`;
+    // List blobs using the Azure Storage REST API
+    const listUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}?restype=container&comp=list${SAS_TOKEN}`;
+    
+    try {
+        const response = await fetch(listUrl);
+        const xml = await response.text();
         
-        const videoElement = document.createElement('div');
-        videoElement.className = 'video-item';
-        videoElement.innerHTML = `
-            <video controls>
-                <source src="${videoUrl}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-            <p>${blob.name}</p>
-        `;
+        // Parse the XML response (simplified example)
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xml, "text/xml");
+        const blobs = xmlDoc.getElementsByTagName("Blob");
         
-        videoContainer.appendChild(videoElement);
+        for (let blob of blobs) {
+            const blobName = blob.getElementsByTagName("Name")[0].textContent;
+            const videoUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}/${blobName}${SAS_TOKEN}`;
+            
+            const videoElement = document.createElement('div');
+            videoElement.className = 'video-item';
+            videoElement.innerHTML = `
+                <video controls width="300">
+                    <source src="${videoUrl}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <p>${blobName}</p>
+            `;
+            
+            videoContainer.appendChild(videoElement);
+        }
+    } catch (error) {
+        console.error("Error loading videos:", error);
     }
 }
 

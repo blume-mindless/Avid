@@ -1,32 +1,40 @@
-// Azure Storage SDK
-const { BlobServiceClient } = require('@azure/storage-blob');
-
-// Configuration
-const AZURE_STORAGE_CONNECTION_STRING = "your_connection_string";
-const VIDEO_CONTAINER_NAME = "videos";
-
-// Initialize
-const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
-const containerClient = blobServiceClient.getContainerClient(VIDEO_CONTAINER_NAME);
+// Configuration (same as upload.js)
+const AZURE_STORAGE_ACCOUNT = "blume";
+const SAS_TOKEN = "?sv=2024-11-04&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2025-06-28T04:23:14Z&st=2025-04-27T20:23:14Z&spr=https&sig=RKYdjMZXaLsk9L3R50tDNXl%2FHYqZnl227X27q02RKkQ%3D";
+const CONTAINER_NAME = "videos";
 
 async function loadVideos() {
     const videoContainer = document.getElementById('video-container');
     videoContainer.innerHTML = '';
     
-    for await (const blob of containerClient.listBlobsFlat()) {
-        const videoUrl = `https://blume.blob.core.windows.net/${VIDEO_CONTAINER_NAME}/${blob.name}`;
+    const listUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}?restype=container&comp=list${SAS_TOKEN}`;
+    
+    try {
+        const response = await fetch(listUrl);
+        const xml = await response.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xml, "text/xml");
+        const blobs = xmlDoc.getElementsByTagName("Blob");
         
-        const videoElement = document.createElement('div');
-        videoElement.className = 'video-item';
-        videoElement.innerHTML = `
-            <video controls>
-                <source src="${videoUrl}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-            <p>${blob.name}</p>
-        `;
-        
-        videoContainer.appendChild(videoElement);
+        for (let blob of blobs) {
+            const blobName = blob.getElementsByTagName("Name")[0].textContent;
+            const videoUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}/${blobName}${SAS_TOKEN}`;
+            
+            const videoElement = document.createElement('div');
+            videoElement.className = 'video-item';
+            videoElement.innerHTML = `
+                <video controls width="300">
+                    <source src="${videoUrl}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <p>${blobName}</p>
+            `;
+            
+            videoContainer.appendChild(videoElement);
+        }
+    } catch (error) {
+        console.error("Error loading videos:", error);
+        videoContainer.innerHTML = `<p>Error loading videos. Please try again later.</p>`;
     }
 }
 
