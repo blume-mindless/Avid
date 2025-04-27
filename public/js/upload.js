@@ -1,6 +1,6 @@
 // Configuration (replace with your actual values)
 const AZURE_STORAGE_ACCOUNT = "blume";
-const SAS_TOKEN = "?sv=2024-11-04&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2025-06-28T04:44:57Z&st=2025-04-27T20:44:57Z&spr=https&sig=r7b8U09FVNpKJsmooKd5fMSiP7FezXy9pbelT3o09wQ%3D";
+const SAS_TOKEN = "?sv=2024-11-04&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2025-07-01T05:02:43Z&st=2025-04-27T21:02:43Z&spr=https&sig=7as6U8fEHynntgF1yHlNPAuZKTXlQpiKqeohnO02QnM%3D";
 const CONTAINER_NAME = "videos";
 
 document.getElementById('upload-btn').addEventListener('click', async () => {
