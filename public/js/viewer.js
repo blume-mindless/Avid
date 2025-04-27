@@ -1,6 +1,6 @@
 // Configuration (same as upload.js)
 const AZURE_STORAGE_ACCOUNT = "blume";
-const SAS_TOKEN = "?sv=2024-11-04&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2025-06-28T04:23:14Z&st=2025-04-27T20:23:14Z&spr=https&sig=RKYdjMZXaLsk9L3R50tDNXl%2FHYqZnl227X27q02RKkQ%3D";
+const SAS_TOKEN = "?sv=2024-11-04&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2025-06-28T04:44:57Z&st=2025-04-27T20:44:57Z&spr=https&sig=r7b8U09FVNpKJsmooKd5fMSiP7FezXy9pbelT3o09wQ%3D";
 const CONTAINER_NAME = "videos";
 
 async function loadVideos() {
