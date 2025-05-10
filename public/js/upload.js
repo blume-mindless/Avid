@@ -43,6 +43,26 @@ document.getElementById('upload-btn').addEventListener('click', async () => {
     }
 });
 
+async function deleteVideo(blobName) {
+    const deleteUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}/${blobName}?${SAS_TOKEN}`;
+    
+    try {
+        const response = await fetch(deleteUrl, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            alert("Video deleted successfully!");
+            loadVideos(); // Refresh the video list
+        } else {
+            throw new Error(`Delete failed: ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error("Error deleting video:", error);
+        alert("Failed to delete the video.");
+    }
+}
+
 async function loadVideos() {
     const videoContainer = document.getElementById('video-container');
     videoContainer.innerHTML = '';
@@ -71,10 +91,20 @@ async function loadVideos() {
                     Your browser does not support the video tag.
                 </video>
                 <p>${blobName}</p>
+                <button class="delete-btn" data-blob-name="${blobName}">Delete</button>
             `;
             
             videoContainer.appendChild(videoElement);
         }
+
+        // Add event listeners to delete buttons
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const blobName = e.target.getAttribute('data-blob-name');
+                deleteVideo(blobName);
+            });
+        });
     } catch (error) {
         console.error("Error loading videos:", error);
     }
