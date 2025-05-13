@@ -34,27 +34,7 @@ header h1 {
     margin-right: 50px; /* Add spacing between the title and navigation */
 }
 
-nav {
-    display: flex;
-    gap: 15px; /* Reduced gap for closer spacing between buttons */
-}
 
-nav a {
-    text-decoration: none;
-    color: #333;
-    font-size: 18px;
-    transition: 0.3s;
-}
-
-nav a:hover {
-    color: #d80027;
-}
-
-nav a.active {
-    color: #d80027;
-    font-weight: bold;
-    border-bottom: 2px solid #d80027;
-}
 
 /* ✅ Main Content */
 main {
