@@ -1,10 +1,12 @@
-// Configuration (replace with your actual values)
 const AZURE_STORAGE_ACCOUNT = "blume";
 const SAS_TOKEN = "sv=2024-11-04&ss=bfqt&srt=sco&sp=rwdlacupiytfx&se=2025-07-01T05:02:43Z&st=2025-04-27T21:02:43Z&spr=https&sig=7as6U8fEHynntgF1yHlNPAuZKTXlQpiKqeohnO02QnM%3D";
 const CONTAINER_NAME = "videos";
 
+const escapeHtml = (str) => str.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 document.getElementById('upload-btn').addEventListener('click', async () => {
     const fileInput = document.getElementById('video-upload');
+    const professorName = document.getElementById('professor-name').value.trim();
     const statusDiv = document.getElementById('upload-status');
     
     if (fileInput.files.length === 0) {
@@ -12,28 +14,34 @@ document.getElementById('upload-btn').addEventListener('click', async () => {
         return;
     }
     
+    if (!professorName) {
+        statusDiv.textContent = "Please enter professor's name";
+        return;
+    }
+    
     const file = fileInput.files[0];
-    const blobName = `${Date.now()}-${file.name}`;
+    const blobName = `${professorName.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
     
     try {
         statusDiv.textContent = "Uploading...";
+        const uploadUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}/${encodeURIComponent(blobName)}?${SAS_TOKEN}`;
         
-        // Create the upload URL
-        const uploadUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}/${blobName}?${SAS_TOKEN}`;
-        
-        // Upload using Fetch API
         const response = await fetch(uploadUrl, {
             method: 'PUT',
             headers: {
                 'x-ms-blob-type': 'BlockBlob',
-                'Content-Type': file.type
+                'Content-Type': file.type,
+                'x-ms-meta-professor': professorName,
+                'x-ms-meta-originalname': file.name
             },
             body: file
         });
         
         if (response.ok) {
             statusDiv.textContent = "Upload successful!";
-            loadVideos(); // Refresh the video list
+            document.getElementById('professor-name').value = '';
+            fileInput.value = '';
+            loadVideos();
         } else {
             throw new Error(`Upload failed: ${response.statusText}`);
         }
@@ -44,16 +52,13 @@ document.getElementById('upload-btn').addEventListener('click', async () => {
 });
 
 async function deleteVideo(blobName) {
-    const deleteUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}/${blobName}?${SAS_TOKEN}`;
-    
     try {
-        const response = await fetch(deleteUrl, {
-            method: 'DELETE'
-        });
+        const deleteUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}/${encodeURIComponent(blobName)}?${SAS_TOKEN}`;
+        const response = await fetch(deleteUrl, { method: 'DELETE' });
 
         if (response.ok) {
             alert("Video deleted successfully!");
-            loadVideos(); // Refresh the video list
+            loadVideos();
         } else {
             throw new Error(`Delete failed: ${response.statusText}`);
         }
@@ -63,25 +68,61 @@ async function deleteVideo(blobName) {
     }
 }
 
-async function loadVideos() {
+async function loadVideos(searchTerm = '') {
     const videoContainer = document.getElementById('video-container');
-    videoContainer.innerHTML = '';
-    
-    // List blobs using the Azure Storage REST API
-    const listUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}?restype=container&comp=list&${SAS_TOKEN}`;
-    
+    videoContainer.innerHTML = '<p>Loading videos...</p>';
+
     try {
+        const listUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}?restype=container&comp=list&${SAS_TOKEN}`;
         const response = await fetch(listUrl);
         const xml = await response.text();
-        
-        // Parse the XML response (simplified example)
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xml, "text/xml");
-        const blobs = xmlDoc.getElementsByTagName("Blob");
         
+        videoContainer.innerHTML = '';
+        
+        // Add search
+        const searchHTML = `
+            <div class="search-container">
+                <input type="text" id="video-search" placeholder="Search by professor..." value="${escapeHtml(searchTerm)}">
+                <button id="search-btn">Search</button>
+                ${searchTerm ? '<button id="clear-search">Clear</button>' : ''}
+            </div>
+        `;
+        videoContainer.insertAdjacentHTML('afterbegin', searchHTML);
+
+        document.getElementById('search-btn')?.addEventListener('click', () => {
+            loadVideos(document.getElementById('video-search').value.trim());
+        });
+
+        document.getElementById('clear-search')?.addEventListener('click', () => {
+            loadVideos();
+        });
+
+        const blobs = xmlDoc.getElementsByTagName("Blob");
+        let hasVideos = false;
+
         for (let blob of blobs) {
-            const blobName = blob.getElementsByTagName("Name")[0].textContent;
-            const videoUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}/${blobName}?${SAS_TOKEN}`;
+            const blobName = blob.getElementsByTagName("Name")[0]?.textContent;
+            if (!blobName) continue;
+            
+            const metadata = blob.getElementsByTagName("Metadata")[0];
+            let professorName = '';
+            let originalName = blobName;
+            
+            if (metadata) {
+                professorName = metadata.getElementsByTagName("Professor")[0]?.textContent || '';
+                originalName = metadata.getElementsByTagName("Originalname")[0]?.textContent || blobName;
+            }
+            
+            if (!professorName) {
+                const nameParts = blobName.split('-');
+                professorName = nameParts[0].replace(/-/g, ' ');
+            }
+            
+            if (searchTerm && !professorName.toLowerCase().includes(searchTerm.toLowerCase())) continue;
+
+            const videoUrl = `https://${AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/${CONTAINER_NAME}/${encodeURIComponent(blobName)}?${SAS_TOKEN}`;
             
             const videoElement = document.createElement('div');
             videoElement.className = 'video-item';
@@ -90,25 +131,22 @@ async function loadVideos() {
                     <source src="${videoUrl}" type="video/mp4">
                     Your browser does not support the video tag.
                 </video>
-                <p>${blobName}</p>
-                <button class="delete-btn" data-blob-name="${blobName}">Delete</button>
+                <p><strong>Professor:</strong> ${escapeHtml(professorName)}</p>
+                <p><strong>File:</strong> ${escapeHtml(originalName)}</p>
+                <button class="delete-btn" onclick="deleteVideo('${blobName.replace(/'/g, "\\'")}')">Delete</button>
             `;
-            
+
             videoContainer.appendChild(videoElement);
+            hasVideos = true;
         }
 
-        // Add event listeners to delete buttons
-        const deleteButtons = document.querySelectorAll('.delete-btn');
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
-                const blobName = e.target.getAttribute('data-blob-name');
-                deleteVideo(blobName);
-            });
-        });
+        if (!hasVideos) {
+            videoContainer.innerHTML += '<p>No videos found matching your search.</p>';
+        }
     } catch (error) {
         console.error("Error loading videos:", error);
+        videoContainer.innerHTML = `<p>Error loading videos: ${escapeHtml(error.message)}</p>`;
     }
 }
 
-// Load videos when page loads
-document.addEventListener('DOMContentLoaded', loadVideos);
+document.addEventListener('DOMContentLoaded', () => loadVideos());
