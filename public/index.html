@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" href="data:,"> <!-- Prevents favicon.ico 404 errors -->
+    <link rel="icon" href="data:,">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Hub - Upload</title>
@@ -15,6 +15,10 @@
     <main>
         <section class="upload-section">
             <h2>Upload Your Video</h2>
+            <div class="form-group">
+                <label for="professor-name">Professor Name:</label>
+                <input type="text" id="professor-name" placeholder="Enter professor's name">
+            </div>
             <input type="file" id="video-upload" accept="video/*">
             <button id="upload-btn">Upload Video</button>
             <div id="upload-status"></div>
